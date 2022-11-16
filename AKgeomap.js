@@ -1,3 +1,6 @@
+var geoJSON = "AK-02-alaska-counties.json";
+var csv = "AKPopDensity.csv";
+
 var colorScheme1 = {
   'domain': [1, 10, 50, 200, 500, 1000, 2000, 4000],
   'range': d3.schemeOrRd[9],
@@ -27,15 +30,6 @@ var boundaryButton = d3.select("body")
         createMap();
     });
 
-var width = 960,
-    height = 600;
-
-var svg = d3.select("body")
-  .append("div")
-  .append("svg")
-  .attr("width", width)
-  .attr("height", height);
-
 var tooltip = d3.select("body")
     .append("div")
     .attr("id", "tooltip")
@@ -45,21 +39,28 @@ tooltip.append("div")
 tooltip.append("div")
     .attr("id", "desc");
 
-function tooltipMove() {
-  const x = d3.event.clientX + window.scrollX + 10;
-  const y = d3.event.clientY + window.scrollY + 10;
+function tooltipMove(event) {
+  const x = event.clientX + window.scrollX + 10;
+  const y = event.clientY + window.scrollY + 10;
 
   d3.select("#tooltip")
       .style("left", x + "px")
       .style("top", y + "px");
 }
 
+var width = 960,
+    height = 600;
+
+var svg = d3.select("body")
+  .append("div")
+  .append("svg")
+  .attr("width", width)
+  .attr("height", height);
+
 createMap();
 
 function createMap() {
   svg.html(null);
-
-  var rateById = d3.map();
 
   var color = d3.scaleThreshold()
       .domain(currColorScheme.domain)
@@ -72,44 +73,42 @@ function createMap() {
   var path = d3.geoPath()
       .projection(projection);
 
-  d3.queue()
-      .defer(d3.json, "AK-02-alaska-counties.json")
-      .defer(d3.csv, "popDensityByCounty.csv", function(d) {
-        rateById.set(d['GCT_STUB.target-geo-id2'], +d['Density per square mile of land area']);
-      })
-      .await(ready);
+  d3.json(geoJSON).then(function(ak) {
 
-  function ready(error, ak) {
-    if (error) throw error;
-
-    svg.append("g")
-        .attr("class", "counties")
-      .selectAll("path")
-        .data(topojson.feature(ak, ak.objects['cb_2015_alaska_county_20m']).features)
-      .enter().append("path")
-        .attr("fill", function(d) { 
-          return color(rateById.get(parseInt(d.properties.GEOID)));
-        })
-        .attr("d", path)
-        .on("mouseover", function(d) {
-          tooltip.select("#label")
-            .text(d.properties.NAME);
-          tooltip.select("#desc")
-            .text("Population density: " + rateById.get(parseInt(d.properties.GEOID)))
+    var rateById = new Map();
+    d3.csv(csv, (d) => {
+      rateById.set(parseInt(d['GCT_STUB.target-geo-id2']), +d['Density per square mile of land area']);
+    }).then(() => {
+      svg.append("g")
+          .attr("class", "counties")
+        .selectAll("path")
+          .data(topojson.feature(ak, ak.objects.cb_2015_alaska_county_20m).features)
+        .enter().append("path")
+          .attr("fill", function(d) { 
+            return color(rateById.get(parseInt(d.properties.GEOID)));
+          })
+          .attr("d", path)
+          .on("mouseover", function(event, d) {
+            tooltip.select("#label")
+              .text(d.properties.NAME);
+            tooltip.select("#desc")
+              .text("Population density: " + rateById.get(parseInt(d.properties.GEOID)))
             tooltip.classed("hidden", false);
-        })
-        .on("mousemove", function(d) {
-          tooltipMove();
-        })
-        .on("mouseout", function() {tooltip.classed("hidden", true);});
+          })
+          .on("mousemove", function(event) {
+            tooltipMove(event);
+          })
+          .on("mouseout", function() {tooltip.classed("hidden", true);});
 
-    if (boundaries) {
-      svg.append("path")
-        .datum(topojson.mesh(ak, ak.objects['cb_2015_alaska_county_20m'], function(a, b) { return a !== b; }))
-        .attr("class", "boundary")
-        .attr("d", path);
-    }
-  }
+      if (boundaries) {
+        svg.append("path")
+          .datum(topojson.mesh(ak, ak.objects['cb_2015_alaska_county_20m'], function(a, b) { return a !== b; }))
+          .attr("class", "boundary")
+          .attr("d", path);
+        }
+      })
+    });
+    
 
   // Legend Scale
   var x = d3.scaleSqrt()
@@ -148,5 +147,5 @@ function createMap() {
       .tickFormat(currColorScheme === colorScheme2 ? d3.format(".1f") : null))
     .select(".domain")
       .remove();
-  //
+
 }
