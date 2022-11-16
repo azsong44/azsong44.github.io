@@ -24,7 +24,7 @@ var colorButton = d3.select("body")
 
 var boundaryButton = d3.select("body")
     .append("button")
-    .text("Toggle Boundaries")
+    .text("Toggle County Boundary")
     .on("click", function() {
         boundaries = !boundaries;
         createMap();
