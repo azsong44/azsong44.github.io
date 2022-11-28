@@ -1,6 +1,6 @@
 // Variable Initializations
 const geoJSONfile = "world-continents.json";
-const datafile = "birddata.csv";
+const datafile = "newbirddata.csv";
 const githubLink = "https://petercai0131.github.io/CSE163_Birds/";
 
 const continentToName = {
@@ -12,17 +12,22 @@ const continentToName = {
   "OC": "Oceania",
 }
 let birdList = [];
+let sunburstOrder = ["order", "color", "behavior", "conservation"];
 
 // Creating divs
 const root = d3.select("body").append("div")
   .attr("id", "root");
 const titleDiv = root.append("div")
   .attr("id", "titleDiv");
-const geomapDiv = root.append("div")
+const centerDiv = root.append("div")
+  .attr("id", "centerDiv")
+  .style("display", "flex")
+  .style("justify-content", "space-evenly");
+const geomapDiv = centerDiv.append("div")
   .attr("id", "geomapDiv")
   .style("display", "flex")
   .style("justify-content", "space-evenly");
-const sunburstDiv = root.append("div")
+const sunburstDiv = centerDiv.append("div")
   .attr("id", "sunburstDiv")
   .style("display", "flex")
   .style("justify-content", "space-evenly");
@@ -30,14 +35,18 @@ const creditsDiv = root.append("div")
   .attr("id", "creditsDiv");
 
 // Data Parsing
-const birdMap = new Map(); // Bird: {Color: [Color1, Color2], Family: [Family]}
+const birdMap = new Map();
+const propertyNames = ["color", "scientific_name", "order", "family",
+  "general_name", "habitat", "food", "nesting", "behavior", "conservation",
+  "aab_description"];
 const locationToBird = new Map(); // Location: [Bird1, Bird2, ...]
 d3.csv(datafile, (d) => {
   // birdMap
-  const colors = d["color"].split(",");
-  const family = d["Family"].split(",");
-  const value = {"colors": colors, "family": family};
-  birdMap.set(d["real_name"], value)
+  const properties = {};
+  for (let i = 0; i < propertyNames.length; i++) {
+    properties[propertyNames[i]] = d[propertyNames[i]];
+  }
+  birdMap.set(d["real_name"], properties);
 
   // locationToBird
   const locations = d["location"].split(",");
@@ -48,10 +57,12 @@ d3.csv(datafile, (d) => {
     locationToBird.get(locations[i]).push(d["real_name"]);
   }
 }).then(() => {
-  console.log(locationToBird);
+  console.log(birdMap);
   title("Birds");
   credits(githubLink);
   geomap();
+  console.log(locationToBird.get("OC"))
+  console.log(createSunburstJSON(locationToBird.get("EU"), "EU", sunburstOrder));
 });
 
 // ____________________________________________________________________________
@@ -192,7 +203,7 @@ function credits(githubLink, divID="creditsDiv") {
 function drawSunburst(list = birdList, root) {
   if (list.length === 0) {return;}
   sunburstDiv.html(null);
-  const sunburstJSONdata = createSunburstJSON(list, root)
+  const sunburstJSONdata = createSunburstJSON(list, root, sunburstOrder)
   Sunburst(sunburstJSONdata, {
     value: d => d.size, // size of each node (file); null for internal nodes (folders)
     label: d => d.name, // display name for each cell
@@ -273,7 +284,7 @@ function Sunburst(data, { // data is either tabular (array of objects) or hierar
       .attr("width", width)
       .attr("height", height)
       .attr("style", "max-width: 100%; height: auto; height: intrinsic;")
-      .attr("font-size", 10)
+      .attr("font-size", 12)
       .attr("text-anchor", "middle");
 
   const cell = svg
@@ -311,66 +322,49 @@ function Sunburst(data, { // data is either tabular (array of objects) or hierar
 // ARRAY -> SUNBURST JSON (HELPER FUNCTIONS)
 // ____________________________________________________________________________
 
-function createSunburstJSON(birdList, root, datamap = birdMap) {
-  // Family
-  const familyChildren = [];
-  const familyMap = createMapForSunburst(birdList, "family");
-  for (const [family, familyBirdList] of Object.entries(familyMap)) {
-    // Colors
-    const colorChildren = createColorChildren(familyBirdList, []);
-
-    familyChildren.push({"name": family, "children": colorChildren});
-  }
-
-  const sunburstData = {"name": root, "children": familyChildren}
+function createSunburstJSON(birdList, rootName, propertyOrder,
+  datamap = birdMap) {
+  const children = recurSunburstJSON(birdList, propertyOrder, datamap);
+  const sunburstData = {"name": rootName, "children": children}
   return sunburstData;
 }
 
-// returns children array
-function createColorChildren(keyArr, exemptValues, datamap = birdMap) {
-  const colorChildren = [];
-  const colorMap = createMapForSunburst(keyArr, "colors", exemptValues);
-  for (const [color, colorBirdList] of Object.entries(colorMap)) {
-    const newExemptValues = JSON.parse(JSON.stringify(exemptValues));
-    newExemptValues.push(color);
-    const continueBirdList = [];
+function recurSunburstJSON(keyArr, propertyOrder, datamap = birdMap) {
+  const children = [];
+  const newPropertyOrder = JSON.parse(JSON.stringify(propertyOrder));
+  const property = newPropertyOrder[0];
+  newPropertyOrder.shift();
+  const propertyMap = createMapForSunburst(keyArr, property, datamap);
+  // console.log(propertyMap);
+  for (const [prop, propBirdList] of Object.entries(propertyMap)) {
+    let subChildren = [];
 
-    // Checking for leaf nodes
-    const leafChildren = [];
-    for (bird of colorBirdList) {
-      const birdAllColors = datamap.get(bird)["colors"];
-      const noColorsLeft = birdAllColors.every(
-        (val) => newExemptValues.includes(val));
-      if (noColorsLeft) {
-        leafChildren.push({"name": bird, "size": 1})
-      } else {
-        continueBirdList.push(bird);
+    // If leaf nodes
+    if (newPropertyOrder.length === 0) {
+      for (bird of propBirdList) {
+        subChildren.push({"name": bird, "size": 1})
       }
+    } else {
+      subChildren = recurSunburstJSON(propBirdList, newPropertyOrder, datamap);
     }
-    const treeChildren = createColorChildren(continueBirdList, newExemptValues);
-    const subChildren = leafChildren.concat(treeChildren);
 
-    colorChildren.push({"name": color, "children": subChildren});
+    children.push({"name": prop, "children": subChildren});
   }
-  return colorChildren;
+  return children;
 }
 
 // Creates {value : [key(s)]} map
 function createMapForSunburst(keyArr, valueName,
-  exemptValues = [],
   datamap = birdMap) {
-let map = {};
-for (key of keyArr) {
-  for (value of datamap.get(key)[valueName]) {
-    if (!exemptValues.includes(value)) {
-      if (!map[value]) {
-        map[value] = [];
-      }
-      map[value].push(key);
+  let map = {};
+  for (key of keyArr) {
+    const value = datamap.get(key)[valueName];
+    if (!map[value]) {
+      map[value] = [];
     }
+    map[value].push(key);
   }
-}
-return map;
+  return map;
 }
 
 // ____________________________________________________________________________
@@ -380,7 +374,7 @@ return map;
 
 function geomap(
   divID = "geomapDiv",
-  width = 1000,
+  width = 900,
   height = 550,
   geoJSON = geoJSONfile,
 ) {
@@ -391,10 +385,19 @@ function geomap(
   .range(d3.schemeOrRd[9]);
 
   // var graticule = d3.geoGraticule();
-  var svg = d3.select(`#${divID}`).append("svg")
+  var svg = d3.select(`#${divID}`).append("svg").raise()
+    .attr("viewBox", [
+      0,
+      0,
+      width,
+      height
+    ])
     .attr("id", "geomap")
     .attr("width", width)
-    .attr("height", height);
+    .attr("height", height)
+    .attr("style", "max-width: 100%; height: auto; height: intrinsic;")
+    .attr("font-size", 12)
+    .attr("text-anchor", "middle");
 
   // var g = svg.append("g");
 
@@ -446,7 +449,7 @@ function geomap(
       .on("click", function(d, i) {
         birdList = locationToBird.get(d.properties.continent);
         tooltip.style("opacity", 0)
-        drawSunburst(birdList, d.properties.continent);
+        drawSunburst(birdList, continentToName[d.properties.continent]);
       })
       //Tooltip
       .on("mousemove", function(d) {
