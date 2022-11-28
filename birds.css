@@ -1,0 +1,55 @@
+/* body { margin:0;position:fixed;top:0;right:0;bottom:0;left:0; } */
+
+/* svg { width:100%;height:100% } */
+
+/* path {fill:none;} */
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif
+}
+
+.graticule {
+  fill: none;
+  stroke: #777;
+  stroke-width: .5px;
+  stroke-opacity: .5;
+}
+
+.stroke {
+  fill: none;
+  stroke: #000;
+  stroke-width: 3px;
+}
+
+.tooltip {
+  position: absolute;
+    width: auto;
+    height: auto;
+    padding: 8px;
+    background-color: white;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+    -moz-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+    box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+}
+
+#creditsDiv {
+  background-image: linear-gradient(white, rgb(205, 231, 240));
+  padding-top: 20px;
+  padding-bottom: 10px;
+}
+
+.subtitle, .title {
+  padding-top: 10px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.normal_text {
+  text-align: center;
+}
