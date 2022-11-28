@@ -5,6 +5,7 @@ const githubLink = "https://petercai0131.github.io/CSE163_Birds/";
 
 const width = 900;
 const height = 900;
+let state = -1;
 
 const continentToName = {
   "NA": "North America",
@@ -16,7 +17,11 @@ const continentToName = {
 }
 let birdList = [];
 let rootName = "";
-let sunburstOrder = ["order", "color", "food"];
+const options = [
+  "", "color", "order", "family", "general_name",
+  "habitat", "food", "nesting", "behavior", "conservation",
+]
+let sunburstOrder = ["family", "color"];
 let singleBird = "";
 
 // Creating divs
@@ -30,6 +35,8 @@ const centerDiv = root.append("div")
   .style("justify-content", "space-evenly");
 const leftDiv = centerDiv.append("div")
   .attr("id", "leftDiv");
+const arrowDiv = centerDiv.append("div")
+  .attr("id", "arrowDiv");
 const mainDiv = centerDiv.append("div")
   .attr("id", "mainDiv")
   .attr("width", width)
@@ -66,10 +73,10 @@ d3.csv(datafile, (d) => {
   }
 }).then(() => {
   title("Birds");
-  leftPanel();
+  arrowPanel();
+  dropdownMenus();
   credits(githubLink);
   handleToGeomap();
-  console.log(birdMap);
 });
 
 // ____________________________________________________________________________
@@ -77,12 +84,16 @@ d3.csv(datafile, (d) => {
 // HANDLE CLICKS
 // ____________________________________________________________________________
 function handleToSunburst(birdList, rootName, divID="mainDiv") {
+  console.log('tosunburst')
+  state = 1;
   d3.select(`#${divID}`).html(null);
   d3.selectAll(".geomapHidden").style("opacity", "1");
   drawSunburst(birdList, rootName, divID);
 }
 
 function handleToGeomap(divID="mainDiv") {
+  console.log("to map")
+  state = 0;
   d3.select(`#${divID}`).html(null);
   d3.selectAll(".geomapHidden").style("opacity", "0");
   geomap(divID);
@@ -227,7 +238,53 @@ function credits(githubLink, divID="creditsDiv") {
 //
 // LEFT AND RIGHT PANELS
 // ____________________________________________________________________________
-function leftPanel(divID="leftDiv") {
+function dropdownMenus(order=sunburstOrder, propOptions=options, divID="leftDiv") {
+  const main = d3.select(`#${divID}`)
+    .style("display", "flex")
+    .style("flex-direction", "column")
+    .style("justify-content", "center");
+  
+  main.append("div")
+    .text("Sunburst Category Options:");
+
+  const numOptions = ["0", "1", "2", "3", "4", "5", "6", "7", "8"];
+  main.append("div")
+    .attr("class", "dropdownMenus")
+    .selectAll("div")
+    .data(numOptions)
+    .enter()
+    .append("div")
+    .append("select")
+    .attr("id", function (d) {return `dropdown${d}`;})
+    .attr("name", function (d) {return `dropdown${d}`;})
+      .selectAll("option")
+      .data(propOptions)
+      .enter()
+      .append("option")
+      .attr("value", function (d) {return d;})
+      .text(function (d) {return d;});
+
+  main.append("button")
+    .text("Set Options")
+    .on("click", function() {
+      const newOrder = [];
+      for (let i = 0; i < 9; i++) {
+        let val = d3.select(`#dropdown${i}`).node().value;
+        if (val.length > 0 && !newOrder.includes(val)) {
+          newOrder.push(val);
+        }
+      }
+      console.log(newOrder);
+      if (newOrder.length > 0) {
+        sunburstOrder = newOrder;
+      }
+      if (state === 1) {
+        handleToSunburst(birdList, rootName);
+      }
+    });
+}
+
+function arrowPanel(divID="arrowDiv") {
   d3.select(`#${divID}`)
     .style("display", "flex")
     .style("flex-direction", "column")
