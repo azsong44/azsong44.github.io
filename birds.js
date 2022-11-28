@@ -3,6 +3,9 @@ const geoJSONfile = "world-continents.json";
 const datafile = "newbirddata.csv";
 const githubLink = "https://petercai0131.github.io/CSE163_Birds/";
 
+const width = 900;
+const height = 900;
+
 const continentToName = {
   "NA": "North America",
   "SA": "South America",
@@ -12,7 +15,9 @@ const continentToName = {
   "OC": "Oceania",
 }
 let birdList = [];
-let sunburstOrder = ["order", "color", "behavior", "conservation"];
+let rootName = "";
+let sunburstOrder = ["order", "color", "food"];
+let singleBird = "";
 
 // Creating divs
 const root = d3.select("body").append("div")
@@ -23,20 +28,23 @@ const centerDiv = root.append("div")
   .attr("id", "centerDiv")
   .style("display", "flex")
   .style("justify-content", "space-evenly");
-const geomapDiv = centerDiv.append("div")
-  .attr("id", "geomapDiv")
+const leftDiv = centerDiv.append("div")
+  .attr("id", "leftDiv");
+const mainDiv = centerDiv.append("div")
+  .attr("id", "mainDiv")
+  .attr("width", width)
+  .attr("height", height)
   .style("display", "flex")
-  .style("justify-content", "space-evenly");
-const sunburstDiv = centerDiv.append("div")
-  .attr("id", "sunburstDiv")
-  .style("display", "flex")
-  .style("justify-content", "space-evenly");
+  .style("justify-content", "space-evenly")
+  .style("align-items", "center");
+const rightDiv = centerDiv.append("div")
+  .attr("id", "rightDiv");
 const creditsDiv = root.append("div")
   .attr("id", "creditsDiv");
 
 // Data Parsing
 const birdMap = new Map();
-const propertyNames = ["color", "scientific_name", "order", "family",
+const propertyNames = ["image", "color", "scientific_name", "order", "family",
   "general_name", "habitat", "food", "nesting", "behavior", "conservation",
   "aab_description"];
 const locationToBird = new Map(); // Location: [Bird1, Bird2, ...]
@@ -57,13 +65,33 @@ d3.csv(datafile, (d) => {
     locationToBird.get(locations[i]).push(d["real_name"]);
   }
 }).then(() => {
-  console.log(birdMap);
   title("Birds");
+  leftPanel();
   credits(githubLink);
-  geomap();
-  console.log(locationToBird.get("OC"))
-  console.log(createSunburstJSON(locationToBird.get("EU"), "EU", sunburstOrder));
+  handleToGeomap();
+  console.log(birdMap);
 });
+
+// ____________________________________________________________________________
+//
+// HANDLE CLICKS
+// ____________________________________________________________________________
+function handleToSunburst(birdList, rootName, divID="mainDiv") {
+  d3.select(`#${divID}`).html(null);
+  d3.selectAll(".geomapHidden").style("opacity", "1");
+  drawSunburst(birdList, rootName, divID);
+}
+
+function handleToGeomap(divID="mainDiv") {
+  d3.select(`#${divID}`).html(null);
+  d3.selectAll(".geomapHidden").style("opacity", "0");
+  geomap(divID);
+}
+
+function handleSingleBird(birdName=singleBird, divID="rightDiv") {
+  d3.select(`#${divID}`).html(null);
+  createBirdOverview(birdName, divID);
+}
 
 // ____________________________________________________________________________
 //
@@ -197,19 +225,91 @@ function credits(githubLink, divID="creditsDiv") {
 
 // ____________________________________________________________________________
 //
+// LEFT AND RIGHT PANELS
+// ____________________________________________________________________________
+function leftPanel(divID="leftDiv") {
+  d3.select(`#${divID}`)
+    .style("display", "flex")
+    .style("flex-direction", "column")
+    .style("justify-content", "space-around");
+  const backButton = d3.select(`#${divID}`).append("div")
+    .append("svg")
+    .attr("class", "geomapHidden")
+    .attr("width", "20")
+    .attr("height", "20")
+    .on("click", function() {handleToGeomap()});
+  backButton.append("polygon")
+    .attr("points", "0,10 20,0 20,20")
+    .attr("fill", "#777777");
+}
+
+function createBirdOverview(birdName=singleBird, divID="rightDiv", width=300, datamap=birdMap) {
+  birdProps = datamap.get(birdName);
+  const main = d3.select(`#${divID}`)
+    .style("display", "flex")
+    .style("flex-direction", "column")
+    .style("justify-content", "flex-start");// "space-around");
+
+  const headInfo = main.append("div");
+  const birdTitle = headInfo.append("h3")
+    .attr("class", "subtitle")
+    .text(birdName);
+
+  const birdImage = headInfo.append("img")
+    .attr("src", birdProps.image)
+    .attr("alt", birdName)
+    .attr("width", width);
+  
+  const information = main.append("div")
+    .style("display", "flex")
+    .style("flex-direction", "column")
+    .style("justify-content", "space-between")
+    .style("margin-top", "10px");
+  const leftInfo = information.append("div")
+    .style("font-style", "italic");
+  leftInfo.append("div")
+    .text(`Scientific Name: ${birdProps.scientific_name}`);
+  leftInfo.append("div")
+    .text(`Order: ${birdProps.order}`);
+  leftInfo.append("div")
+    .text(`Family: ${birdProps.family}`);
+  
+  const table = main.append("div").append("table")
+    .style("margin-top", "10px");
+  const rowProps = ["Habitat", "Food", "Nesting", "Behavior", "Conservation"];
+  for (rowProp of rowProps) {
+    console.log(rowProp);
+    const row = table.append("tr");
+    row.append("td")
+      .text(rowProp)
+      .style("font-weight", "bold");
+    row.append("td")
+      .text(":");
+    row.append("td")
+      .text(birdProps[rowProp.toLowerCase()]);
+  }
+  // const description = main.append("div")
+  //   .text(birdProps.aab_description)
+  //   .style("word-wrap", "break-word")
+  //   .attr("width", "100%");
+}
+
+// ____________________________________________________________________________
+//
 // SUNBURST
 // ____________________________________________________________________________
 
-function drawSunburst(list = birdList, root) {
+function drawSunburst(list = birdList, root, divID="sunburstDiv") {
   if (list.length === 0) {return;}
-  sunburstDiv.html(null);
+  // sunburstDiv.html(null);
   const sunburstJSONdata = createSunburstJSON(list, root, sunburstOrder)
   Sunburst(sunburstJSONdata, {
+    divID: divID,
     value: d => d.size, // size of each node (file); null for internal nodes (folders)
     label: d => d.name, // display name for each cell
     title: (d, n) => `${n.ancestors().reverse().map(d => d.data.name).join(".")}\n${n.value.toLocaleString("en")}`, // hover text
-    width: 850,
-    height: 850
+    width: 700,
+    height: 700
   })
 }
 
@@ -297,7 +397,14 @@ function Sunburst(data, { // data is either tabular (array of objects) or hierar
   cell.append("path")
       .attr("d", arc)
       .attr("fill", color ? d => color(d.ancestors().reverse()[1]?.index) : fill)
-      .attr("fill-opacity", fillOpacity);
+      .attr("fill-opacity", fillOpacity)
+      .on("click", function(d, i) {
+        if (!d.children) {
+          singleBird = d.data.name;
+          handleSingleBird(singleBird);
+        }
+      });
+      //.each((d) => console.log(d));
 
   if (label != null) cell
     .filter(d => (d.y0 + d.y1) / 2 * (d.x1 - d.x0) > 10)
@@ -335,7 +442,6 @@ function recurSunburstJSON(keyArr, propertyOrder, datamap = birdMap) {
   const property = newPropertyOrder[0];
   newPropertyOrder.shift();
   const propertyMap = createMapForSunburst(keyArr, property, datamap);
-  // console.log(propertyMap);
   for (const [prop, propBirdList] of Object.entries(propertyMap)) {
     let subChildren = [];
 
@@ -448,8 +554,9 @@ function geomap(
       .style("fill", function(d,i) { return color(d.properties.number); })
       .on("click", function(d, i) {
         birdList = locationToBird.get(d.properties.continent);
+        rootName = continentToName[d.properties.continent];
         tooltip.style("opacity", 0)
-        drawSunburst(birdList, continentToName[d.properties.continent]);
+        handleToSunburst(birdList, rootName);
       })
       //Tooltip
       .on("mousemove", function(d) {
